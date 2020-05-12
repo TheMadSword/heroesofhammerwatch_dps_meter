@@ -1,0 +1,11 @@
+<dict>
+  <dict name="classmaps">
+    <array name="behaviors">
+      <array><string>Player</string><string>BananaMod::BananaPlayer</string></array>
+    </array>
+  </dict>
+  <string name="name">DPS Meter</string>
+  <string name="author">RedSword</string>
+  <string name="description">Allows to calculate DPS</string>
+  <string name="version">0.9Testplayerjoin</string>
+</dict>
