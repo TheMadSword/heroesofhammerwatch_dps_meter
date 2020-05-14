@@ -19,10 +19,9 @@ bool g_cvar_dps_short;
 //Over 10**12 ==> overflow in 32bits :(
 %replace  TERA_DBL             1000000000000.0
 %replace  PETA_DBL          1000000000000000.0
-//After PETA, we should start losing precision due to Mantissa being only 51 bits = ~2.25 * 10^15
+//After PETA, we could start losing precision due to Mantissa being only 51 bits = ~2.25 * 10^15
 %replace   EXA_DBL       1000000000000000000.0
-%replace ZETTA_DBL    1000000000000000000000.0
-%replace YOTTA_DBL 1000000000000000000000000.0
+//No need for Zetta+, as it's 10^21, which is > 2^64 ~= 10^19
 
 namespace DpsMeterMod
 {
@@ -49,7 +48,7 @@ namespace DpsMeterMod
     CircularExpiryQueue m_circularDITQueue;
 
     uint64 m_DPS = 0;
-    uint64 m_highestDPS = 0;
+    uint64 m_lvlHighestDPS = 0;
 
     DpsMeteredPlayer(UnitPtr unit, SValue& params)
     {
@@ -77,6 +76,12 @@ namespace DpsMeterMod
       // and if so if un-init would be done before or after first instance destructor
     //}
 
+  	void Initialize(PlayerRecord@ record) override
+    {
+      Player::Initialize(record);
+      RefreshDPS(); //with 0s
+    }
+
   	void DamagedActor(Actor@ actor, DamageInfo di) override
   	{
       m_circularDITQueue.AddDamage(di.Damage);
@@ -92,17 +97,17 @@ namespace DpsMeterMod
         m_DPS = last_second_dps;
         RefreshDPSVar("dps_val", "dps", m_DPS);
       }
-      if (last_second_dps > m_highestDPS)
+      if (last_second_dps > m_lvlHighestDPS)
       {
-        m_highestDPS = last_second_dps;
-        RefreshDPSVar("dps_highest_val", "dps_highest", m_highestDPS);
+        m_lvlHighestDPS = last_second_dps;
+        RefreshDPSVar("dps_highest_val", "dps_highest", m_lvlHighestDPS);
       }
     }
 
     void RefreshDPS()
     {
       RefreshDPSVar("dps_val", "dps", m_DPS);
-      RefreshDPSVar("dps_highest_val", "dps_highest", m_highestDPS);
+      RefreshDPSVar("dps_highest_val", "dps_highest", m_lvlHighestDPS);
     }
 
   }
@@ -229,9 +234,12 @@ namespace DpsMeterMod
       uint64 dmgSum = 0;
       if (m_iStart >= 0)
       {
-        for (int i = m_iStart; i != m_iEnd; i = (i + 1) % m_allocatedSize)
+        for (int i = 0;
+          i < m_allocatedSize &&
+          m_dmgTime[(m_iStart + i) % m_allocatedSize].TimeOccured >= m_elapsedTime - 1000;
+          ++i)
         {
-          dmgSum += m_dmgTime[i].Damage;
+          dmgSum += m_dmgTime[(m_iStart + i) % m_allocatedSize].Damage;
         }
       }
 
@@ -325,10 +333,8 @@ string formatDPS_short(uint64 dps)
       retval = formatFloat(dps / TERA_DBL, "", 0, 2) + "T";
     else if (dps_dbl < EXA_DBL) //lot of imprecision starting here
       retval = formatFloat(dps / PETA_DBL, "", 0, 2) + "P";
-    else if (dps_dbl < ZETTA_DBL)
+    else // if (dps_dbl < ZETTA_DBL)
       retval = formatFloat(dps / EXA_DBL, "", 0, 2) + "E";
-    else //if (dps_dbl < YOTTA_DBL)
-      retval = formatFloat(dps / ZETTA_DBL, "", 0, 2) + "Z";
   }
 
   return retval;
@@ -337,11 +343,6 @@ string formatDPS_short(uint64 dps)
 // ===== END HELPER =====
 
 //===== CVAR & CFCT =====
-
-void SetCVar_AttemptChangeDPS(int val)
-{
-  DpsMeterMod::RefreshDPS();
-}
 
 void SetCVar_Short(bool val)
 {
