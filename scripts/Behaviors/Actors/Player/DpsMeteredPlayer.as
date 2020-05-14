@@ -282,7 +282,7 @@ string formatDPS(uint64 dps)
 //Numeric format with separator
 string formatDPS_long(uint64 dps)
 {
-  string separator = GetVarString("dps_long_separator"); //TODO Remove when answered & use g_cvar_dps_long_separator;
+  string separator = GetVarString("dps_long_separator");
   string long_format = formatUInt(dps);
 
   uint32 long_format_size = long_format.length();
