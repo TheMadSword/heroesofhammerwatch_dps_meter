@@ -60,22 +60,8 @@ namespace DpsMeterMod
       AddVar("dps_highest_val", 0, null, 0);
       AddVar("dps", "0", null, 0); //actual value, formatted
       AddVar("dps_highest", "0", null, 0); //formatted
-      AddVar("dps_short", false, SetCVar_Short, 0); //should we use short form (k/M/G/etc.)
+      AddVar("dps_short", true, SetCVar_Short, 0); //should we use short form (k/M/G/etc.)
       AddVar("dps_long_separator", " ", SetCVar_LongSeparator, 0); //if not short, what is the thousand separator (beside 1000)
-      AddVar("y1", 1000000000000000.0, null, 0); //if not short, what is the thousand separator (beside 1000)
-      AddVar("y2", 100000000000.0, null, 0); //if not short, what is the thousand separator (beside 1000)
-      print("herp1 = " + 1000000000000000.0);
-      print("herp2 = " + 1000000000000.0);
-      print("herp3 = " + 1000000000000000000.0);
-      print("herp4 = " + 1000000000000000000000.0);
-      print("herp5 = " + 1000000000000000000000000.0);
-      print("herp6 = " + YOTTA_DBL);
-      print("herp1d = " + formatFloat(1000000000000000.0));
-      print("herp2d = " + formatFloat(1000000000000.0));
-      print("herp3d = " + formatFloat(1000000000000000000000.0));
-      print("herp4d = " + formatFloat(1000000000000000000000.0));
-      print("herp5d = " + formatFloat(1000000000000000000000000.0));
-      print("herp6dYOTTTAAA = " + formatFloat(YOTTA_DBL));
 
       array<cvar_type> cfuncParams = { cvar_type::String };
       AddFunction("dps_fakedmg", cfuncParams, ::Cheat_FakeDmg, cvar_flags::Cheat);
