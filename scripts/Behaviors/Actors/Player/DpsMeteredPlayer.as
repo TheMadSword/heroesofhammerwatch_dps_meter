@@ -5,7 +5,9 @@
 string g_cvar_dps_long_separator;
 bool g_cvar_dps_short;
 
-%define DEBUG
+//%define DEBUG
+
+%replace MAX_INT 2147483647
 
 %replace  KILO_INT                       10**3
 %replace  MEGA_INT                       10**6
@@ -34,10 +36,10 @@ namespace DpsMeterMod
   }
 
   //Bridge function between CVar and DpsMeteredPlayer
-  void Cheat_FakeDmg(DamageInfo di)
+  void Cheat_FakeDmg(uint64 dmg)
   {
     if (g_player !is null && g_player.m_circularDITQueue !is null)
-      g_player.m_circularDITQueue.AddDamage(di);
+      g_player.m_circularDITQueue.AddDamage(dmg);
     else
       print("DpsMeterMod::Cheat_FakeDmg player or queue not instantiated ; player = " + (g_player is null));
   }
@@ -75,7 +77,7 @@ namespace DpsMeterMod
       print("herp5d = " + formatFloat(1000000000000000000000000.0));
       print("herp6dYOTTTAAA = " + formatFloat(YOTTA_DBL));
 
-      array<cvar_type> cfuncParams = { cvar_type::Int };
+      array<cvar_type> cfuncParams = { cvar_type::String };
       AddFunction("dps_fakedmg", cfuncParams, ::Cheat_FakeDmg, cvar_flags::Cheat);
 
       m_circularDITQueue = CircularExpiryQueue();
@@ -91,7 +93,7 @@ namespace DpsMeterMod
 
   	void DamagedActor(Actor@ actor, DamageInfo di) override
   	{
-      m_circularDITQueue.AddDamage(di);
+      m_circularDITQueue.AddDamage(di.Damage);
   		Player::DamagedActor(actor, di);
   	}
 
@@ -119,9 +121,9 @@ namespace DpsMeterMod
 
   }
 
-  class DamageInfoTime
+  class DamageTime
   {
-    DamageInfo DamageInfo;
+    uint64 Damage;
     int TimeOccured;
   }
 
@@ -129,7 +131,7 @@ namespace DpsMeterMod
   {
     int m_elapsedTime;
     //Over-engineer to not be constantly dynamically allocating new DIT
-    array<DamageInfoTime> m_diTime;
+    array<DamageTime> m_dmgTime;
 
     uint32 m_allocatedSize; // No way to get allocated size :(, so I manually keep track
     int m_iStart = -1; //nextToExpire (@update)
@@ -138,20 +140,20 @@ namespace DpsMeterMod
     CircularExpiryQueue()
     {
       m_allocatedSize = 3;
-      //m_diTime = array<DamageInfoTime>(m_allocatedSize, DamageInfoTime()); //wtf AngelScript
-      m_diTime = array<DamageInfoTime>();
-      m_diTime.reserve(m_allocatedSize);
+      //m_dmgTime = array<DamageInfoTime>(m_allocatedSize, DamageInfoTime()); //wtf AngelScript
+      m_dmgTime = array<DamageTime>();
+      m_dmgTime.reserve(m_allocatedSize);
       for (uint i = 0; i < m_allocatedSize; ++i) {
-        m_diTime.insertLast(DamageInfoTime());
+        m_dmgTime.insertLast(DamageTime());
       }
     }
 
-    void AddDamage(DamageInfo di)
+    void AddDamage(uint64 dmg)
     {
       ReallocateIfNeeded();
 
-      m_diTime[m_iEnd].DamageInfo = di;
-      m_diTime[m_iEnd].TimeOccured = m_elapsedTime;
+      m_dmgTime[m_iEnd].Damage = dmg;
+      m_dmgTime[m_iEnd].TimeOccured = m_elapsedTime;
 
       m_iEnd = (m_iEnd + 1) % m_allocatedSize;
 
@@ -164,23 +166,23 @@ namespace DpsMeterMod
     {
       //Only when queue both side touches that we need to reallocate
 %if DEBUG
-      print("iEnd = " + m_iEnd + ", iStart=" + m_iStart + " w/ " + m_diTime.length() + "=" + dbgPrintDITArray(m_diTime));
+      print("iEnd = " + m_iEnd + ", iStart=" + m_iStart + " w/ " + m_dmgTime.length() + "=" + dbgPrintDITArray(m_dmgTime));
 %endif
       if (m_iStart < 0 || m_iEnd != m_iStart)
         return;
 
       uint newAllocatedSize = m_allocatedSize * 2;
-      array<DamageInfoTime> newInternalArray = array<DamageInfoTime>(newAllocatedSize, DamageInfoTime());
+      array<DamageTime> newInternalArray = array<DamageTime>(newAllocatedSize, DamageTime());
 
       // w/e since it's a new array, we need to copy all
       for (uint i = 0; i < m_allocatedSize; ++i)
       {
-        newInternalArray[i] = m_diTime[(m_iStart + i) % m_allocatedSize];
+        newInternalArray[i] = m_dmgTime[(m_iStart + i) % m_allocatedSize];
       }
 
       for (uint i = m_allocatedSize; i < newAllocatedSize; ++i)
       {
-        m_diTime.insertLast(DamageInfoTime());
+        m_dmgTime.insertLast(DamageTime());
       }
 
       m_iStart = 0;
@@ -188,10 +190,10 @@ namespace DpsMeterMod
       m_allocatedSize = newAllocatedSize;
 
 %if DEBUG
-      print("Reallocating from " + dbgPrintDITArray(m_diTime) + " to " + dbgPrintDITArray(newInternalArray));
+      print("Reallocating from " + dbgPrintDITArray(m_dmgTime) + " to " + dbgPrintDITArray(newInternalArray));
 %endif
 
-      m_diTime = newInternalArray;
+      m_dmgTime = newInternalArray;
     }
 
     uint64 Update(int dt)
@@ -215,7 +217,7 @@ namespace DpsMeterMod
 
       do
       {
-        shouldExpire = m_diTime[m_iStart].TimeOccured < m_elapsedTime - 1000;
+        shouldExpire = m_dmgTime[m_iStart].TimeOccured < m_elapsedTime - 1000;
         if (shouldExpire)
         {
           m_iStart = (m_iStart + 1) % m_allocatedSize;
@@ -243,7 +245,7 @@ namespace DpsMeterMod
       {
         for (int i = m_iStart; i != m_iEnd; i = (i + 1) % m_allocatedSize)
         {
-          dmgSum += m_diTime[i].DamageInfo.Damage;
+          dmgSum += m_dmgTime[i].Damage;
         }
       }
 
@@ -256,10 +258,11 @@ namespace DpsMeterMod
 
 // ===== HELPER =====
 
-string dbgPrintDITArray(array<DpsMeterMod::DamageInfoTime> herp) {
+%if DEBUG
+string dbgPrintDITArray(array<DpsMeterMod::DamageTime> herp) {
   string str = "[";
   for (uint i = 0; i < herp.length(); ++i) {
-    str += herp[i].DamageInfo.Damage + "@" + herp[i].TimeOccured;
+    str += herp[i].Damage + "@" + herp[i].TimeOccured;
     if (i != herp.length() - 1) {
       str += ",";
     }
@@ -268,6 +271,7 @@ string dbgPrintDITArray(array<DpsMeterMod::DamageInfoTime> herp) {
 
   return str;
 }
+%endif
 
 string formatDPS(uint64 dps)
 {
@@ -314,9 +318,11 @@ string formatDPS_short(uint64 dps)
   double dps_dbl = dps * 1.0;
   //Lower values are checked first, because int cmp is faster for a computer,
   // plus more people would do low dmg I presume :P
-  if (dps < GIGA_INT)
+  if (dps <= MAX_INT)
   {
-    if (dps >= MEGA_INT)
+    if (dps >= GIGA_INT)
+      retval = formatFloat(dps / GIGA_DBL, "", 0, 2) + "G";
+    else if (dps >= MEGA_INT)
       retval = formatFloat(dps / MEGA_DBL, "", 0, 2) + "M";
     else if (dps >= KILO_INT)
       retval = formatFloat(dps / KILO_DBL, "", 0, 1) + "k";
@@ -331,7 +337,7 @@ string formatDPS_short(uint64 dps)
       retval = formatFloat(dps / GIGA_DBL, "", 0, 2) + "G";
     else if (dps_dbl < PETA_DBL)
       retval = formatFloat(dps / TERA_DBL, "", 0, 2) + "T";
-    else if (dps_dbl < EXA_DBL)
+    else if (dps_dbl < EXA_DBL) //lot of imprecision starting here
       retval = formatFloat(dps / PETA_DBL, "", 0, 2) + "P";
     else if (dps_dbl < ZETTA_DBL)
       retval = formatFloat(dps / EXA_DBL, "", 0, 2) + "E";
@@ -371,9 +377,9 @@ void RefreshDPSVar(string cvar, string formattedCVar, uint64 val)
 
 void Cheat_FakeDmg(cvar_t@ arg0)
 {
-  DamageInfo di = DamageInfo();
-  di.Damage = arg0.GetInt();
-  DpsMeterMod::Cheat_FakeDmg(di);
+  string dmgStr = arg0.GetString();
+  uint64 dmg = parseUInt(dmgStr);
+  DpsMeterMod::Cheat_FakeDmg(dmg);
 }
 
 //===== END CVAR =====
