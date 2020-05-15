@@ -130,7 +130,7 @@ namespace DpsMeterMod
 
     CircularExpiryQueue()
     {
-      m_allocatedSize = 3;
+      m_allocatedSize = 32;
       //m_dmgTime = array<DamageInfoTime>(m_allocatedSize, DamageInfoTime()); //wtf AngelScript
       m_dmgTime = array<DamageTime>();
       m_dmgTime.reserve(m_allocatedSize);
