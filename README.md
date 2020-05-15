@@ -1,3 +1,5 @@
 # heroesofhammerwatch_dps_meter
 
-0.9Test for mp
+1.0.0
+
+See : https://steamcommunity.com/sharedfiles/filedetails/?id=2094626282
