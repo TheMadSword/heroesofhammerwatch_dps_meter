@@ -144,7 +144,7 @@ namespace DpsMeterMod
 
     void SetRecentDamageConfig(int time)
     {
-      m_recentDamageCalculator.SetConfig(time);
+      m_recentDamageCalculator.ResetConfig(time);
     }
 
   }

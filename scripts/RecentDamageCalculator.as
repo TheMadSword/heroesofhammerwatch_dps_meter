@@ -30,9 +30,15 @@ namespace DpsMeterMod
     uint64 m_currentBucketHighestDamage;
     uint64 m_currentBucketHighestDPS;
 
-    void SetConfig(int averageTime)
+    void ResetConfig(int averageTime)
     {
       m_maxBuckets = averageTime * BUCKET_PER_SEC;
+      m_buckets.resize(0);
+      m_lvlHighestAvgDPS = 0;
+      m_currentBucketHighestDamage = 0;
+      m_currentBucketHighestDPS = 0;
+      RefreshRecentDmg();
+      RefreshDPSVar("dps_val_avg_highest", "dps_avg_highest", 0);
     }
 
     void Update(int dt, uint64 last_second_dps)
