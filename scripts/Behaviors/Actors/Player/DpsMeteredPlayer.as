@@ -134,8 +134,12 @@ namespace DpsMeterMod
 
     void RefreshDPS()
     {
-      RefreshDPSVar("dps_val", "dps", m_DPS);
       RefreshDPSVar("dps_val_highest", "dps_highest", m_lvlHighestDPS);
+      if (m_recentDamageCalculator !is null)
+      {
+        RefreshDPSVar("dps_val_avg_highest", "dps_avg_highest", m_recentDamageCalculator.m_lvlHighestAvgDPS);
+        m_recentDamageCalculator.RefreshRecentDmg();
+      }
     }
 
     void SetRecentDamageConfig(int time)
